@@ -1,8 +1,3 @@
-# Navigate to your project
-cd waffles-sticky-responses
-
-# Replace the broken ai_interface.py file
-cat > src/ai_interface.py << 'EOF'
 import pandas as pd
 from typing import Dict, List, Optional, Any
 import logging
@@ -19,7 +14,7 @@ class ConversationalInterface:
         self.openai_api_key = openai_api_key
         self.db_manager = database_manager
         
-        # Query patterns for common questions - FIXED SYNTAX
+        # Query patterns for common questions
         self.query_patterns = {
             'top_customers': r'(top|best|highest|leading)\s+(\d+)?\s*(customers?|clients?)',
             'usage_correlation': r'(correlation|connection|relationship).*?(contacts?|workflows?)',
@@ -158,4 +153,3 @@ class ConversationalInterface:
             "Which customers have the most add-ons?",
             "How do usage patterns differ across plans?"
         ]
-EOF
