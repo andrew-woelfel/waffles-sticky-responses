@@ -11,239 +11,365 @@ logger = logging.getLogger(__name__)
 class DataProcessor:
     """Handle data loading, cleaning, and transformation for Help Scout customer data."""
     
-    def __init__(self, data_path: str = "data/saas_customer_data.csv"):
-        self.data_path = data_path
-        self.raw_data: Optional[pd.DataFrame] = None
+    def __init__(self, data_dir: str = "data/"):
+        self.data_dir = data_dir
+        self.raw_data: Dict[str, pd.DataFrame] = {}
         self.processed_data: Dict[str, pd.DataFrame] = {}
         
-    def load_raw_data(self) -> pd.DataFrame:
-        """Load raw customer data from CSV."""
-        try:
-            self.raw_data = pd.read_csv(self.data_path)
-            logger.info(f"Loaded {len(self.raw_data)} records from {self.data_path}")
-            return self.raw_data
-        except FileNotFoundError:
-            logger.error(f"Data file not found: {self.data_path}")
-            # Return sample data for development
-            return self._generate_sample_data()
-        except Exception as e:
-            logger.error(f"Error loading data: {str(e)}")
-            raise
-    
-    def _generate_sample_data(self) -> pd.DataFrame:
-        """Generate sample data for development/testing purposes."""
-        np.random.seed(42)
-        n_customers = 1000
-        
-        # Generate sample customer data
-        data = {
-            'customer_id': [f"CUST_{i:04d}" for i in range(1, n_customers + 1)],
-            'company_name': [f"Company {i}" for i in range(1, n_customers + 1)],
-            'plan_type': np.random.choice(['Basic', 'Standard', 'Pro', 'Enterprise'], n_customers, p=[0.3, 0.4, 0.2, 0.1]),
-            'mrr': np.random.lognormal(5.5, 1, n_customers).astype(int),
-            'contacts_count': np.random.poisson(100, n_customers),
-            'workflows_count': np.random.poisson(15, n_customers),
-            'created_date': pd.date_range(start='2020-01-01', periods=n_customers, freq='D'),
-            'last_activity_date': pd.date_range(start='2024-01-01', periods=n_customers, freq='H'),
-            'add_on_type': np.random.choice(['Advanced Reports', 'Extra Storage', 'Priority Support', None], n_customers, p=[0.2, 0.3, 0.25, 0.25]),
-            'add_on_cost': np.where(np.random.choice([True, False], n_customers, p=[0.75, 0.25]), 
-                                  np.random.choice([29, 49, 99, 199], n_customers), 0)
+        # Expected file names
+        self.file_mapping = {
+            'customers': 'customer.csv',
+            'activity': 'customer_activity.csv', 
+            'plans': 'plan.csv'
         }
         
-        df = pd.DataFrame(data)
-        logger.info(f"Generated {len(df)} sample records for development")
-        return df
+    def load_raw_data(self) -> Dict[str, pd.DataFrame]:
+        """Load raw customer data from CSV files."""
+        loaded_data = {}
+        
+        for table_name, filename in self.file_mapping.items():
+            filepath = f"{self.data_dir}{filename}"
+            try:
+                df = pd.read_csv(filepath)
+                loaded_data[table_name] = df
+                logger.info(f"Loaded {len(df)} records from {filename}")
+            except FileNotFoundError:
+                logger.warning(f"File not found: {filename}. Generating sample data.")
+                loaded_data[table_name] = self._generate_sample_data(table_name)
+            except Exception as e:
+                logger.error(f"Error loading {filename}: {str(e)}")
+                loaded_data[table_name] = self._generate_sample_data(table_name)
+        
+        self.raw_data = loaded_data
+        return loaded_data
     
-    def clean_data(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _generate_sample_data(self, table_name: str) -> pd.DataFrame:
+        """Generate sample data matching the real schema."""
+        np.random.seed(42)
+        n_customers = 100
+        customer_ids = [f"CUST_{i:04d}" for i in range(1, n_customers + 1)]
+        
+        if table_name == 'customers':
+            return pd.DataFrame({
+                'customer_id': customer_ids,
+                'customer_name': [f"Customer Company {i}" for i in range(1, n_customers + 1)]
+            })
+            
+        elif table_name == 'activity':
+            return pd.DataFrame({
+                'customer_id': customer_ids,
+                'docs_sites': np.random.randint(1, 10, n_customers),
+                'mailboxes': np.random.randint(1, 20, n_customers),
+                'regular_users': np.random.randint(5, 100, n_customers),
+                'monthly_active_users': np.random.randint(3, 80, n_customers),
+                'paid_users': np.random.randint(1, 50, n_customers),
+                'contacts': np.random.randint(100, 10000, n_customers).astype(str),
+                'workflows': np.random.randint(5, 50, n_customers),
+                'integrations': np.random.randint(0, 15, n_customers),
+                'beacons': np.random.randint(0, 10, n_customers),
+                'tags': np.random.randint(10, 200, n_customers).astype(str),
+                'saved_replies': np.random.randint(5, 100, n_customers).astype(str),
+                'light_users': np.random.randint(0, 20, n_customers),
+                'all_answers_contacts': np.random.randint(50, 5000, n_customers),
+                'all_resolutions': np.random.randint(20, 2000, n_customers)
+            })
+            
+        elif table_name == 'plans':
+            return pd.DataFrame({
+                'customer_id': customer_ids,
+                'payment_frequency': np.random.choice(['Monthly', 'Yearly'], n_customers, p=[0.7, 0.3]),
+                'close_date': pd.date_range(start='2024-01-01', periods=n_customers, freq='D').strftime('%Y-%m-%d'),
+                'start_date': pd.date_range(start='2020-01-01', periods=n_customers, freq='D').strftime('%Y-%m-%d'),
+                'end_date': pd.date_range(start='2025-01-01', periods=n_customers, freq='D').strftime('%Y-%m-%d'),
+                'months_since_active': np.random.randint(1, 48, n_customers),
+                'last_reply_date': pd.date_range(start='2024-08-01', periods=n_customers, freq='D').strftime('%Y-%m-%d'),
+                'plan_name': np.random.choice(['Basic', 'Standard', 'Pro', 'Enterprise'], n_customers, p=[0.3, 0.4, 0.2, 0.1]),
+                'billings': np.random.choice(['Active', 'Past Due', 'Cancelled'], n_customers, p=[0.8, 0.1, 0.1]),
+                'average_monthly_revenue': (np.random.lognormal(6, 0.8, n_customers) * 10).round(2).astype(str),
+                'advanced_api_access': np.random.choice([0, 1], n_customers, p=[0.7, 0.3]),
+                'api_rate_limit_increase': np.random.choice([0, 1], n_customers, p=[0.8, 0.2]),
+                'advanced_security': np.random.choice([0, 1], n_customers, p=[0.6, 0.4])
+            })
+        
+        return pd.DataFrame()
+    
+    def clean_data(self, raw_data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
         """Clean and validate the raw data."""
         logger.info("Starting data cleaning process")
+        cleaned_data = {}
         
-        # Make a copy to avoid modifying original
-        cleaned_df = df.copy()
+        for table_name, df in raw_data.items():
+            logger.info(f"Cleaning {table_name} table")
+            cleaned_df = df.copy()
+            
+            if table_name == 'customers':
+                cleaned_df = self._clean_customers_table(cleaned_df)
+            elif table_name == 'activity':
+                cleaned_df = self._clean_activity_table(cleaned_df)
+            elif table_name == 'plans':
+                cleaned_df = self._clean_plans_table(cleaned_df)
+            
+            cleaned_data[table_name] = cleaned_df
+            logger.info(f"Cleaned {table_name}: {len(cleaned_df)} records")
         
+        return cleaned_data
+    
+    def _clean_customers_table(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Clean the customers table."""
         # Handle missing values
-        cleaned_df['company_name'] = cleaned_df['company_name'].fillna('Unknown Company')
-        cleaned_df['plan_type'] = cleaned_df['plan_type'].fillna('Basic')
-        cleaned_df['mrr'] = pd.to_numeric(cleaned_df['mrr'], errors='coerce').fillna(0)
-        cleaned_df['contacts_count'] = pd.to_numeric(cleaned_df['contacts_count'], errors='coerce').fillna(0)
-        cleaned_df['workflows_count'] = pd.to_numeric(cleaned_df['workflows_count'], errors='coerce').fillna(0)
-        
-        # Standardize plan types
-        plan_mapping = {
-            'basic': 'Basic',
-            'standard': 'Standard', 
-            'pro': 'Pro',
-            'enterprise': 'Enterprise'
-        }
-        cleaned_df['plan_type'] = cleaned_df['plan_type'].str.lower().map(plan_mapping).fillna(cleaned_df['plan_type'])
-        
-        # Convert date columns
-        date_columns = ['created_date', 'last_activity_date']
-        for col in date_columns:
-            if col in cleaned_df.columns:
-                cleaned_df[col] = pd.to_datetime(cleaned_df[col], errors='coerce')
+        df['customer_name'] = df['customer_name'].fillna('Unknown Customer')
         
         # Remove duplicates
-        initial_count = len(cleaned_df)
-        cleaned_df = cleaned_df.drop_duplicates(subset=['customer_id'])
-        if len(cleaned_df) < initial_count:
-            logger.info(f"Removed {initial_count - len(cleaned_df)} duplicate records")
+        initial_count = len(df)
+        df = df.drop_duplicates(subset=['customer_id'])
+        if len(df) < initial_count:
+            logger.info(f"Removed {initial_count - len(df)} duplicate customer records")
         
-        # Data validation
-        self._validate_data(cleaned_df)
-        
-        logger.info(f"Data cleaning completed. Final dataset has {len(cleaned_df)} records")
-        return cleaned_df
+        return df
     
-    def _validate_data(self, df: pd.DataFrame) -> None:
-        """Validate data quality and log issues."""
-        issues = []
-        
-        # Check for negative values where they shouldn't exist
-        numeric_columns = ['mrr', 'contacts_count', 'workflows_count']
-        for col in numeric_columns:
+    def _clean_activity_table(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Clean the customer activity table."""
+        # Convert string columns to numeric where appropriate
+        numeric_string_cols = ['contacts', 'tags', 'saved_replies']
+        for col in numeric_string_cols:
             if col in df.columns:
-                negative_count = (df[col] < 0).sum()
-                if negative_count > 0:
-                    issues.append(f"{negative_count} negative values in {col}")
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
         
-        # Check for outliers (values > 99th percentile)
-        for col in numeric_columns:
+        # Fill missing values for numeric columns
+        numeric_cols = ['docs_sites', 'mailboxes', 'regular_users', 'monthly_active_users', 
+                       'paid_users', 'workflows', 'integrations', 'beacons', 'light_users',
+                       'all_answers_contacts', 'all_resolutions']
+        
+        for col in numeric_cols:
             if col in df.columns:
-                threshold = df[col].quantile(0.99)
-                outlier_count = (df[col] > threshold).sum()
-                if outlier_count > 0:
-                    issues.append(f"{outlier_count} potential outliers in {col} (> {threshold:.0f})")
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         
-        if issues:
-            logger.warning("Data quality issues found:")
-            for issue in issues:
-                logger.warning(f"  - {issue}")
+        # Data validation - ensure logical relationships
+        if 'monthly_active_users' in df.columns and 'regular_users' in df.columns:
+            # Monthly active users shouldn't exceed regular users
+            df['monthly_active_users'] = np.minimum(df['monthly_active_users'], df['regular_users'])
+        
+        if 'paid_users' in df.columns and 'regular_users' in df.columns:
+            # Paid users shouldn't exceed regular users
+            df['paid_users'] = np.minimum(df['paid_users'], df['regular_users'])
+        
+        return df
     
-    def create_normalized_tables(self, df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
-        """Create normalized table structure from flat data."""
-        logger.info("Creating normalized table structure")
+    def _clean_plans_table(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Clean the plans table."""
+        # Convert date columns
+        date_columns = ['close_date', 'start_date', 'end_date', 'last_reply_date']
+        for col in date_columns:
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col], errors='coerce')
         
-        tables = {}
+        # Clean and convert average_monthly_revenue
+        if 'average_monthly_revenue' in df.columns:
+            # Remove currency symbols and convert to float
+            df['average_monthly_revenue'] = df['average_monthly_revenue'].astype(str).str.replace('$', '').str.replace(',', '')
+            df['average_monthly_revenue'] = pd.to_numeric(df['average_monthly_revenue'], errors='coerce').fillna(0)
         
-        # Customers table (main entity)
-        customers_cols = ['customer_id', 'company_name', 'plan_type', 'mrr', 'created_date', 'last_activity_date']
-        tables['customers'] = df[customers_cols].drop_duplicates(subset=['customer_id']).reset_index(drop=True)
+        # Standardize plan names
+        if 'plan_name' in df.columns:
+            plan_mapping = {
+                'basic': 'Basic',
+                'standard': 'Standard', 
+                'pro': 'Pro',
+                'enterprise': 'Enterprise'
+            }
+            df['plan_name'] = df['plan_name'].str.lower().map(plan_mapping).fillna(df['plan_name'])
         
-        # Usage metrics table
-        usage_cols = ['customer_id', 'contacts_count', 'workflows_count']
-        tables['usage_metrics'] = df[usage_cols].reset_index(drop=True)
+        # Ensure boolean columns are properly typed
+        boolean_cols = ['advanced_api_access', 'api_rate_limit_increase', 'advanced_security']
+        for col in boolean_cols:
+            if col in df.columns:
+                df[col] = df[col].astype(bool)
         
-        # Add calculated usage metrics
-        tables['usage_metrics']['total_usage'] = (
-            tables['usage_metrics']['contacts_count'] + tables['usage_metrics']['workflows_count']
-        )
-        tables['usage_metrics']['contacts_per_workflow'] = np.where(
-            tables['usage_metrics']['workflows_count'] > 0,
-            tables['usage_metrics']['contacts_count'] / tables['usage_metrics']['workflows_count'],
-            0
-        )
-        
-        # Add-ons table
-        addon_data = df[df['add_on_type'].notna()][['customer_id', 'add_on_type', 'add_on_cost']].reset_index(drop=True)
-        if not addon_data.empty:
-            tables['add_ons'] = addon_data
-        else:
-            # Create empty table with proper structure
-            tables['add_ons'] = pd.DataFrame(columns=['customer_id', 'add_on_type', 'add_on_cost'])
-        
-        # Customer segments (derived table)
-        tables['customer_segments'] = self._create_customer_segments(tables['customers'], tables['usage_metrics'])
-        
-        # Log table statistics
-        for table_name, table_df in tables.items():
-            logger.info(f"Created {table_name} table with {len(table_df)} records")
-        
-        self.processed_data = tables
-        return tables
+        return df
     
-    def _create_customer_segments(self, customers: pd.DataFrame, usage: pd.DataFrame) -> pd.DataFrame:
-        """Create customer segmentation based on MRR and usage patterns."""
-        # Merge customers with usage data
-        merged = customers.merge(usage, on='customer_id', how='left')
+    def create_unified_dataset(self, cleaned_data: Dict[str, pd.DataFrame]) -> pd.DataFrame:
+        """Create a unified dataset by joining all tables on customer_id."""
+        logger.info("Creating unified dataset")
         
-        # Define segmentation logic
-        def categorize_customer(row):
-            mrr = row['mrr']
-            total_usage = row['total_usage']
-            
-            # MRR categories
-            if mrr >= 1000:
-                mrr_segment = 'High Value'
-            elif mrr >= 500:
-                mrr_segment = 'Medium Value'
-            else:
-                mrr_segment = 'Low Value'
-            
-            # Usage categories
-            if total_usage >= 200:
-                usage_segment = 'High Usage'
-            elif total_usage >= 50:
-                usage_segment = 'Medium Usage'
-            else:
-                usage_segment = 'Low Usage'
-            
-            return mrr_segment, usage_segment
+        # Start with customers table as base
+        unified = cleaned_data['customers'].copy()
         
-        # Apply segmentation
-        segments = merged.apply(categorize_customer, axis=1, result_type='expand')
-        segments.columns = ['mrr_segment', 'usage_segment']
+        # Join with activity data
+        if 'activity' in cleaned_data:
+            unified = unified.merge(
+                cleaned_data['activity'], 
+                on='customer_id', 
+                how='left'
+            )
+            logger.info("Joined activity data")
         
-        # Combine with customer data
-        result = pd.concat([
-            merged[['customer_id', 'company_name', 'plan_type', 'mrr', 'total_usage']],
-            segments
-        ], axis=1)
+        # Join with plans data
+        if 'plans' in cleaned_data:
+            unified = unified.merge(
+                cleaned_data['plans'], 
+                on='customer_id', 
+                how='left'
+            )
+            logger.info("Joined plans data")
         
-        return result
+        logger.info(f"Created unified dataset with {len(unified)} records and {len(unified.columns)} columns")
+        return unified
+    
+    def create_analytical_views(self, unified_data: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+        """Create analytical views for common queries."""
+        logger.info("Creating analytical views")
+        views = {}
+        
+        # Customer summary view
+        views['customer_summary'] = self._create_customer_summary(unified_data)
+        
+        # Activity metrics view
+        views['activity_metrics'] = self._create_activity_metrics(unified_data)
+        
+        # Plan performance view
+        views['plan_performance'] = self._create_plan_performance(unified_data)
+        
+        # Revenue analysis view
+        views['revenue_analysis'] = self._create_revenue_analysis(unified_data)
+        
+        # Usage patterns view
+        views['usage_patterns'] = self._create_usage_patterns(unified_data)
+        
+        logger.info(f"Created {len(views)} analytical views")
+        return views
+    
+    def _create_customer_summary(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Create customer summary with key metrics."""
+        summary_cols = ['customer_id', 'customer_name', 'plan_name', 'average_monthly_revenue',
+                       'months_since_active', 'billings', 'regular_users', 'monthly_active_users']
+        
+        available_cols = [col for col in summary_cols if col in df.columns]
+        summary = df[available_cols].copy()
+        
+        # Add calculated fields
+        if 'average_monthly_revenue' in df.columns:
+            summary['revenue_tier'] = pd.cut(
+                df['average_monthly_revenue'], 
+                bins=[-np.inf, 100, 500, 2000, np.inf],
+                labels=['Low', 'Medium', 'High', 'Enterprise']
+            )
+        
+        return summary
+    
+    def _create_activity_metrics(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Create activity metrics summary."""
+        activity_cols = ['customer_id', 'customer_name', 'plan_name', 'contacts', 'workflows',
+                        'integrations', 'beacons', 'all_answers_contacts', 'all_resolutions']
+        
+        available_cols = [col for col in activity_cols if col in df.columns]
+        activity = df[available_cols].copy()
+        
+        # Calculate engagement scores
+        if 'contacts' in df.columns and 'workflows' in df.columns:
+            activity['engagement_score'] = (
+                df['contacts'].fillna(0) * 0.3 + 
+                df['workflows'].fillna(0) * 0.4 + 
+                df['integrations'].fillna(0) * 0.2 + 
+                df['beacons'].fillna(0) * 0.1
+            )
+        
+        return activity
+    
+    def _create_plan_performance(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Create plan performance analysis."""
+        if 'plan_name' not in df.columns:
+            return pd.DataFrame()
+        
+        plan_metrics = df.groupby('plan_name').agg({
+            'customer_id': 'count',
+            'average_monthly_revenue': ['mean', 'sum'],
+            'regular_users': 'mean',
+            'monthly_active_users': 'mean',
+            'contacts': 'mean',
+            'workflows': 'mean'
+        }).round(2)
+        
+        # Flatten column names
+        plan_metrics.columns = ['customer_count', 'avg_revenue', 'total_revenue', 
+                               'avg_regular_users', 'avg_monthly_active', 'avg_contacts', 'avg_workflows']
+        
+        return plan_metrics.reset_index()
+    
+    def _create_revenue_analysis(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Create revenue analysis view."""
+        if 'average_monthly_revenue' not in df.columns:
+            return pd.DataFrame()
+        
+        revenue_cols = ['customer_id', 'customer_name', 'plan_name', 'average_monthly_revenue',
+                       'payment_frequency', 'billings', 'months_since_active']
+        
+        available_cols = [col for col in revenue_cols if col in df.columns]
+        revenue = df[available_cols].copy()
+        
+        # Calculate annual revenue
+        if 'payment_frequency' in df.columns:
+            revenue['estimated_annual_revenue'] = np.where(
+                df['payment_frequency'] == 'Yearly',
+                df['average_monthly_revenue'],
+                df['average_monthly_revenue'] * 12
+            )
+        
+        return revenue
+    
+    def _create_usage_patterns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Create usage patterns analysis."""
+        usage_cols = ['customer_id', 'plan_name', 'regular_users', 'monthly_active_users',
+                     'contacts', 'workflows', 'integrations', 'saved_replies']
+        
+        available_cols = [col for col in usage_cols if col in df.columns]
+        usage = df[available_cols].copy()
+        
+        # Calculate usage ratios
+        if 'monthly_active_users' in df.columns and 'regular_users' in df.columns:
+            usage['user_activation_rate'] = np.where(
+                df['regular_users'] > 0,
+                df['monthly_active_users'] / df['regular_users'],
+                0
+            )
+        
+        if 'contacts' in df.columns and 'workflows' in df.columns:
+            usage['contacts_per_workflow'] = np.where(
+                df['workflows'] > 0,
+                df['contacts'] / df['workflows'],
+                0
+            )
+        
+        return usage
     
     def get_data_summary(self) -> Dict:
-        """Generate summary statistics for the processed data."""
+        """Generate summary statistics for all data."""
         if not self.processed_data:
             return {"error": "No processed data available"}
         
-        summary = {}
-        
-        # Overall statistics
-        customers_df = self.processed_data['customers']
-        usage_df = self.processed_data['usage_metrics']
-        
-        summary['overview'] = {
-            'total_customers': len(customers_df),
-            'total_mrr': customers_df['mrr'].sum(),
-            'avg_mrr': customers_df['mrr'].mean(),
-            'plan_distribution': customers_df['plan_type'].value_counts().to_dict()
+        summary = {
+            'tables': {},
+            'total_customers': 0,
+            'overview': {}
         }
         
-        # Usage statistics
-        summary['usage'] = {
-            'avg_contacts': usage_df['contacts_count'].mean(),
-            'avg_workflows': usage_df['workflows_count'].mean(),
-            'total_contacts': usage_df['contacts_count'].sum(),
-            'total_workflows': usage_df['workflows_count'].sum()
-        }
+        for table_name, df in self.processed_data.items():
+            summary['tables'][table_name] = {
+                'row_count': len(df),
+                'column_count': len(df.columns),
+                'columns': df.columns.tolist()
+            }
         
-        # Add-on statistics
-        if not self.processed_data['add_ons'].empty:
-            addon_df = self.processed_data['add_ons']
-            summary['add_ons'] = {
-                'customers_with_addons': len(addon_df),
-                'addon_types': addon_df['add_on_type'].value_counts().to_dict(),
-                'total_addon_revenue': addon_df['add_on_cost'].sum(),
-                'avg_addon_cost': addon_df['add_on_cost'].mean()
-            }
-        else:
-            summary['add_ons'] = {
-                'customers_with_addons': 0,
-                'addon_types': {},
-                'total_addon_revenue': 0,
-                'avg_addon_cost': 0
-            }
+        # Overall statistics from unified data if available
+        if 'unified' in self.processed_data:
+            unified_df = self.processed_data['unified']
+            summary['total_customers'] = len(unified_df)
+            
+            if 'average_monthly_revenue' in unified_df.columns:
+                summary['overview']['total_mrr'] = unified_df['average_monthly_revenue'].sum()
+                summary['overview']['avg_mrr'] = unified_df['average_monthly_revenue'].mean()
+            
+            if 'plan_name' in unified_df.columns:
+                summary['overview']['plan_distribution'] = unified_df['plan_name'].value_counts().to_dict()
         
         return summary
     
@@ -257,8 +383,18 @@ class DataProcessor:
         # Clean the data
         cleaned_data = self.clean_data(raw_data)
         
-        # Create normalized tables
-        tables = self.create_normalized_tables(cleaned_data)
+        # Create unified dataset
+        unified_data = self.create_unified_dataset(cleaned_data)
+        
+        # Create analytical views
+        analytical_views = self.create_analytical_views(unified_data)
+        
+        # Store all processed data
+        self.processed_data = {
+            **cleaned_data,
+            'unified': unified_data,
+            **analytical_views
+        }
         
         logger.info("Data processing pipeline completed successfully")
-        return tables
+        return self.processed_data

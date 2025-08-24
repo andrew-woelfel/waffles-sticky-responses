@@ -186,68 +186,190 @@ class DatabaseManager:
             logger.error(f"Error closing database connections: {e}")
 
 class QueryBuilder:
-    """Helper class to build SQL queries for common analytics operations."""
+    """Helper class to build SQL queries for the Help Scout data schema."""
     
     @staticmethod
-    def top_customers_by_mrr(limit: int = 10) -> str:
-        """Get top customers by MRR."""
+    def top_customers_by_revenue(limit: int = 10) -> str:
+        """Get top customers by average monthly revenue."""
         return f"""
         SELECT 
-            customer_id,
-            company_name,
-            plan_type,
-            mrr
-        FROM customers 
-        ORDER BY mrr DESC 
+            c.customer_id,
+            c.customer_name,
+            p.plan_name,
+            p.average_monthly_revenue,
+            p.billings
+        FROM customers c
+        JOIN plans p ON c.customer_id = p.customer_id
+        ORDER BY CAST(p.average_monthly_revenue AS FLOAT) DESC 
         LIMIT {limit}
         """
     
     @staticmethod
-    def usage_correlation_analysis() -> str:
-        """Analyze correlation between contacts and workflows."""
+    def usage_patterns_by_plan() -> str:
+        """Analyze usage patterns by plan type."""
         return """
         SELECT 
-            c.plan_type,
-            AVG(u.contacts_count) as avg_contacts,
-            AVG(u.workflows_count) as avg_workflows,
-            AVG(u.contacts_per_workflow) as avg_contacts_per_workflow,
-            COUNT(*) as customer_count
+            p.plan_name,
+            COUNT(c.customer_id) as customer_count,
+            AVG(CAST(a.contacts AS FLOAT)) as avg_contacts,
+            AVG(a.workflows) as avg_workflows,
+            AVG(a.regular_users) as avg_regular_users,
+            AVG(a.monthly_active_users) as avg_monthly_active_users,
+            AVG(a.integrations) as avg_integrations,
+            AVG(CAST(p.average_monthly_revenue AS FLOAT)) as avg_revenue
         FROM customers c
-        JOIN usage_metrics u ON c.customer_id = u.customer_id
-        GROUP BY c.plan_type
-        ORDER BY avg_contacts DESC
+        JOIN plans p ON c.customer_id = p.customer_id
+        JOIN activity a ON c.customer_id = a.customer_id
+        GROUP BY p.plan_name
+        ORDER BY avg_revenue DESC
         """
     
     @staticmethod
-    def top_addons_by_plan(plan_type: str = 'Standard') -> str:
-        """Get top add-ons for a specific plan type."""
-        return f"""
-        SELECT 
-            a.add_on_type,
-            COUNT(*) as customer_count,
-            AVG(a.add_on_cost) as avg_cost,
-            SUM(a.add_on_cost) as total_revenue
-        FROM add_ons a
-        JOIN customers c ON a.customer_id = c.customer_id
-        WHERE c.plan_type = '{plan_type}'
-        GROUP BY a.add_on_type
-        ORDER BY customer_count DESC
-        """
-    
-    @staticmethod
-    def customer_segments_analysis() -> str:
-        """Analyze customer segments."""
+    def customer_engagement_analysis() -> str:
+        """Analyze customer engagement metrics."""
         return """
         SELECT 
-            mrr_segment,
-            usage_segment,
+            c.customer_id,
+            c.customer_name,
+            p.plan_name,
+            a.regular_users,
+            a.monthly_active_users,
+            CASE 
+                WHEN a.regular_users > 0 
+                THEN ROUND(CAST(a.monthly_active_users AS FLOAT) / a.regular_users * 100, 2)
+                ELSE 0 
+            END as user_activation_rate,
+            a.contacts,
+            a.workflows,
+            CASE 
+                WHEN a.workflows > 0 
+                THEN ROUND(CAST(a.contacts AS FLOAT) / a.workflows, 2)
+                ELSE 0 
+            END as contacts_per_workflow,
+            CAST(p.average_monthly_revenue AS FLOAT) as revenue
+        FROM customers c
+        JOIN plans p ON c.customer_id = p.customer_id
+        JOIN activity a ON c.customer_id = a.customer_id
+        ORDER BY revenue DESC
+        """
+    
+    @staticmethod
+    def plan_performance_summary() -> str:
+        """Get plan performance summary."""
+        return """
+        SELECT 
+            p.plan_name,
+            COUNT(*) as total_customers,
+            SUM(CASE WHEN p.billings = 'Active' THEN 1 ELSE 0 END) as active_customers,
+            ROUND(AVG(CAST(p.average_monthly_revenue AS FLOAT)), 2) as avg_monthly_revenue,
+            ROUND(SUM(CAST(p.average_monthly_revenue AS FLOAT)), 2) as total_monthly_revenue,
+            ROUND(AVG(a.regular_users), 2) as avg_users,
+            ROUND(AVG(CAST(a.contacts AS FLOAT)), 0) as avg_contacts,
+            ROUND(AVG(a.workflows), 1) as avg_workflows
+        FROM plans p
+        JOIN activity a ON p.customer_id = a.customer_id
+        GROUP BY p.plan_name
+        ORDER BY total_monthly_revenue DESC
+        """
+    
+    @staticmethod
+    def high_value_customers_with_low_engagement() -> str:
+        """Find high-value customers with low engagement."""
+        return """
+        SELECT 
+            c.customer_name,
+            p.plan_name,
+            CAST(p.average_monthly_revenue AS FLOAT) as revenue,
+            a.regular_users,
+            a.monthly_active_users,
+            CASE 
+                WHEN a.regular_users > 0 
+                THEN ROUND(CAST(a.monthly_active_users AS FLOAT) / a.regular_users * 100, 2)
+                ELSE 0 
+            END as activation_rate,
+            a.workflows,
+            a.integrations
+        FROM customers c
+        JOIN plans p ON c.customer_id = p.customer_id
+        JOIN activity a ON c.customer_id = a.customer_id
+        WHERE CAST(p.average_monthly_revenue AS FLOAT) > 500
+        AND (
+            CASE 
+                WHEN a.regular_users > 0 
+                THEN CAST(a.monthly_active_users AS FLOAT) / a.regular_users
+                ELSE 0 
+            END
+        ) < 0.5
+        ORDER BY revenue DESC
+        """
+    
+    @staticmethod
+    def feature_adoption_by_plan() -> str:
+        """Analyze feature adoption by plan type."""
+        return """
+        SELECT 
+            p.plan_name,
             COUNT(*) as customer_count,
-            AVG(mrr) as avg_mrr,
-            AVG(total_usage) as avg_usage,
-            plan_type
-        FROM customer_segments
-        GROUP BY mrr_segment, usage_segment, plan_type
+            AVG(CASE WHEN a.integrations > 0 THEN 1.0 ELSE 0.0 END) * 100 as integration_adoption_rate,
+            AVG(CASE WHEN a.workflows > 5 THEN 1.0 ELSE 0.0 END) * 100 as workflow_power_user_rate,
+            AVG(CASE WHEN a.beacons > 0 THEN 1.0 ELSE 0.0 END) * 100 as beacon_adoption_rate,
+            AVG(CASE WHEN p.advanced_api_access = 1 THEN 1.0 ELSE 0.0 END) * 100 as api_adoption_rate,
+            AVG(CASE WHEN p.advanced_security = 1 THEN 1.0 ELSE 0.0 END) * 100 as security_adoption_rate
+        FROM plans p
+        JOIN activity a ON p.customer_id = a.customer_id
+        GROUP BY p.plan_name
         ORDER BY customer_count DESC
+        """
+    
+    @staticmethod
+    def customer_lifecycle_analysis() -> str:
+        """Analyze customer lifecycle stages."""
+        return """
+        SELECT 
+            c.customer_name,
+            p.plan_name,
+            p.months_since_active,
+            CASE 
+                WHEN p.months_since_active <= 3 THEN 'New'
+                WHEN p.months_since_active <= 12 THEN 'Growing' 
+                WHEN p.months_since_active <= 24 THEN 'Mature'
+                ELSE 'Veteran'
+            END as lifecycle_stage,
+            CAST(p.average_monthly_revenue AS FLOAT) as revenue,
+            p.billings,
+            a.monthly_active_users,
+            a.workflows
+        FROM customers c
+        JOIN plans p ON c.customer_id = p.customer_id  
+        JOIN activity a ON c.customer_id = a.customer_id
+        ORDER BY p.months_since_active DESC
+        """
+    
+    @staticmethod
+    def revenue_at_risk_analysis() -> str:
+        """Identify revenue at risk from billing issues or low engagement."""
+        return """
+        SELECT 
+            c.customer_name,
+            p.plan_name,
+            CAST(p.average_monthly_revenue AS FLOAT) as revenue,
+            p.billings as billing_status,
+            p.months_since_active,
+            a.monthly_active_users,
+            a.regular_users,
+            CASE 
+                WHEN p.billings != 'Active' THEN 'Billing Issue'
+                WHEN a.monthly_active_users = 0 THEN 'No Activity'
+                WHEN a.regular_users > 0 AND CAST(a.monthly_active_users AS FLOAT) / a.regular_users < 0.3 THEN 'Low Engagement'
+                ELSE 'Healthy'
+            END as risk_category
+        FROM customers c
+        JOIN plans p ON c.customer_id = p.customer_id
+        JOIN activity a ON c.customer_id = a.customer_id
+        WHERE p.billings != 'Active' 
+           OR a.monthly_active_users = 0
+           OR (a.regular_users > 0 AND CAST(a.monthly_active_users AS FLOAT) / a.regular_users < 0.3)
+        ORDER BY revenue DESC
         """
     
     @staticmethod
@@ -274,3 +396,32 @@ class QueryBuilder:
             query += f" LIMIT {limit}"
         
         return query
+    
+    @staticmethod
+    def get_table_relationships() -> Dict[str, str]:
+        """Get information about table relationships."""
+        return {
+            'customers': 'Base table with customer information',
+            'activity': 'Customer activity metrics (joined on customer_id)',
+            'plans': 'Plan and billing information (joined on customer_id)',
+            'unified': 'All tables joined together',
+            'customer_summary': 'Summary view with key customer metrics',
+            'activity_metrics': 'Processed activity data with engagement scores',
+            'plan_performance': 'Aggregated plan performance metrics',
+            'revenue_analysis': 'Revenue-focused customer analysis',
+            'usage_patterns': 'Usage patterns and ratios'
+        }
+    
+    @staticmethod
+    def get_common_queries() -> Dict[str, str]:
+        """Get a dictionary of common query patterns."""
+        return {
+            'top_revenue_customers': QueryBuilder.top_customers_by_revenue(),
+            'usage_by_plan': QueryBuilder.usage_patterns_by_plan(),
+            'engagement_analysis': QueryBuilder.customer_engagement_analysis(),
+            'plan_performance': QueryBuilder.plan_performance_summary(),
+            'at_risk_customers': QueryBuilder.revenue_at_risk_analysis(),
+            'feature_adoption': QueryBuilder.feature_adoption_by_plan(),
+            'lifecycle_analysis': QueryBuilder.customer_lifecycle_analysis(),
+            'low_engagement_high_value': QueryBuilder.high_value_customers_with_low_engagement()
+        }
