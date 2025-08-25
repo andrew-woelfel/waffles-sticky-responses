@@ -196,8 +196,7 @@ class QueryBuilder:
             c.customer_id,
             c.customer_name,
             p.plan_name,
-            p.average_monthly_revenue,
-            p.billings
+            p.average_monthly_revenue
         FROM customers c
         JOIN plans p ON c.customer_id = p.customer_id
         ORDER BY CAST(p.average_monthly_revenue AS FLOAT) DESC 
@@ -260,7 +259,6 @@ class QueryBuilder:
         SELECT 
             p.plan_name,
             COUNT(*) as total_customers,
-            SUM(CASE WHEN p.billings = 'Active' THEN 1 ELSE 0 END) as active_customers,
             ROUND(AVG(CAST(p.average_monthly_revenue AS FLOAT)), 2) as avg_monthly_revenue,
             ROUND(SUM(CAST(p.average_monthly_revenue AS FLOAT)), 2) as total_monthly_revenue,
             ROUND(AVG(a.regular_users), 2) as avg_users,
@@ -347,18 +345,16 @@ class QueryBuilder:
     
     @staticmethod
     def revenue_at_risk_analysis() -> str:
-        """Identify revenue at risk from billing issues or low engagement."""
+        """Identify revenue at risk from low engagement."""
         return """
         SELECT 
             c.customer_name,
             p.plan_name,
             CAST(p.average_monthly_revenue AS FLOAT) as revenue,
-            p.billings as billing_status,
             p.months_since_active,
             a.monthly_active_users,
             a.regular_users,
             CASE 
-                WHEN p.billings != 'Active' THEN 'Billing Issue'
                 WHEN a.monthly_active_users = 0 THEN 'No Activity'
                 WHEN a.regular_users > 0 AND CAST(a.monthly_active_users AS FLOAT) / a.regular_users < 0.3 THEN 'Low Engagement'
                 ELSE 'Healthy'
@@ -366,15 +362,29 @@ class QueryBuilder:
         FROM customers c
         JOIN plans p ON c.customer_id = p.customer_id
         JOIN activity a ON c.customer_id = a.customer_id
-        WHERE p.billings != 'Active' 
-           OR a.monthly_active_users = 0
+        WHERE a.monthly_active_users = 0
            OR (a.regular_users > 0 AND CAST(a.monthly_active_users AS FLOAT) / a.regular_users < 0.3)
         ORDER BY revenue DESC
         """
     
     @staticmethod
-    def build_custom_query(table: str, columns: List[str], filters: Dict[str, Any] = None, 
-                          order_by: str = None, limit: int = None) -> str:
+    def tags_and_saved_replies_by_plan() -> str:
+        """Analyze tags and saved replies usage by plan type."""
+        return """
+        SELECT 
+            p.plan_name,
+            COUNT(*) as customer_count,
+            ROUND(AVG(CAST(a.tags AS FLOAT)), 1) as avg_tags,
+            ROUND(AVG(CAST(a.saved_replies AS FLOAT)), 1) as avg_saved_replies,
+            MAX(CAST(a.tags AS FLOAT)) as max_tags,
+            MAX(CAST(a.saved_replies AS FLOAT)) as max_saved_replies,
+            ROUND(AVG(CAST(a.tags AS FLOAT)) / NULLIF(AVG(a.regular_users), 0), 2) as tags_per_user,
+            ROUND(AVG(CAST(a.saved_replies AS FLOAT)) / NULLIF(AVG(a.regular_users), 0), 2) as saved_replies_per_user
+        FROM plans p
+        JOIN activity a ON p.customer_id = a.customer_id
+        GROUP BY p.plan_name
+        ORDER BY avg_tags DESC
+        """
         """Build a custom SELECT query."""
         query = f"SELECT {', '.join(columns)} FROM {table}"
         
@@ -423,5 +433,6 @@ class QueryBuilder:
             'at_risk_customers': QueryBuilder.revenue_at_risk_analysis(),
             'feature_adoption': QueryBuilder.feature_adoption_by_plan(),
             'lifecycle_analysis': QueryBuilder.customer_lifecycle_analysis(),
-            'low_engagement_high_value': QueryBuilder.high_value_customers_with_low_engagement()
+            'low_engagement_high_value': QueryBuilder.high_value_customers_with_low_engagement(),
+            'tags_and_saved_replies': QueryBuilder.tags_and_saved_replies_by_plan()
         }

@@ -23,15 +23,17 @@ class ConversationalInterface:
         
         # Updated query patterns for the real data schema
         self.query_patterns = {
-            'top_customers': r'(top|best|highest|leading)\s+(\d+)?\s*(customers?|clients?)',
-            'revenue_customers': r'(revenue|mrr|money|income|highest.*(pay|spend))',
+            'plan_analysis': r'(plan|tier|subscription).*(performance|analysis|comparison|revenue|average|by\s+plan)',
+            'revenue_by_plan': r'(average|mean|avg).*(revenue|mrr).*(by\s+plan|plan|across\s+plans)',
+            'top_customers': r'(?<!at\s)(?<!at-)(top|best|highest|leading)\s+(\d+)?\s*(customers?|clients?)(?!\s*(at\s)?risk)',
+            'revenue_customers': r'(?<!average\s)(?<!avg\s)(?<!mean\s)(?<!at\s)(?<!at-)(?<!by\s)(highest|top).*(revenue|mrr|money|income|pay|spend)(?!\s*(at\s)?risk)(?!\s*by\s+plan)',
             'usage_correlation': r'(correlation|connection|relationship).*?(contacts?|workflows?|usage)',
-            'plan_analysis': r'(plan|tier|subscription).*?(performance|analysis|comparison)',
-            'engagement': r'(engagement|active|activity|usage).*?(low|high|patterns?)',
-            'at_risk': r'(risk|churn|danger|problem|issue).*?(customers?|revenue)',
+            'engagement': r'(engagement|active|activity|usage).*?(low|high|patterns?)(?!\s*(at\s)?risk)',
+            'at_risk': r'(at\s?risk|churn|danger|problem|issue|risk.*(customers?|revenue)|customers?.*(at\s)?risk)',
             'feature_adoption': r'(feature|adoption|integration|api|workflow).*?(usage|rate)',
             'lifecycle': r'(lifecycle|stage|new|veteran|mature|growing)',
             'customer_insights': r'(tell me|show me|what|insights?).*?(about|interesting)',
+            'tags_and_replies': r'(tags?|saved\s+repl(y|ies)|repl(y|ies)).*(by\s+plan|plan|across\s+plans)',
         }
     
     def process_query(self, user_question: str) -> Dict[str, Any]:
@@ -60,37 +62,58 @@ class ConversationalInterface:
         """Match user question against predefined patterns."""
         question_lower = question.lower()
         
-        # Top customers by revenue pattern
-        if re.search(self.query_patterns['top_customers'], question_lower) or \
-           re.search(self.query_patterns['revenue_customers'], question_lower):
+        # Debug logging
+        logger.info(f"Matching patterns for: '{question_lower}'")
+        
+        # At-risk customers pattern (check this FIRST)
+        if re.search(self.query_patterns['at_risk'], question_lower):
+            logger.info("Matched: at_risk pattern")
+            return self._execute_query('at_risk_customers', question)
+        
+        # Plan analysis and revenue by plan (check BEFORE individual revenue customers)
+        elif re.search(self.query_patterns['plan_analysis'], question_lower) or \
+             re.search(self.query_patterns['revenue_by_plan'], question_lower):
+            logger.info("Matched: plan_analysis or revenue_by_plan pattern")
+            return self._execute_query('plan_performance', question)
+        
+        # Top customers by revenue pattern (check after plan analysis)
+        elif re.search(self.query_patterns['top_customers'], question_lower):
+            logger.info("Matched: top_customers pattern")
+            return self._execute_query('top_revenue_customers', question)
+        
+        # Revenue customers (separate from top customers, check after plan analysis)
+        elif re.search(self.query_patterns['revenue_customers'], question_lower):
+            logger.info("Matched: revenue_customers pattern")
             return self._execute_query('top_revenue_customers', question)
         
         # Usage patterns and correlation
-        if re.search(self.query_patterns['usage_correlation'], question_lower):
+        elif re.search(self.query_patterns['usage_correlation'], question_lower):
+            logger.info("Matched: usage_correlation pattern")
             return self._execute_query('usage_by_plan', question)
         
-        # Plan analysis
-        if re.search(self.query_patterns['plan_analysis'], question_lower):
-            return self._execute_query('plan_performance', question)
-        
         # Engagement analysis
-        if re.search(self.query_patterns['engagement'], question_lower):
+        elif re.search(self.query_patterns['engagement'], question_lower):
+            logger.info("Matched: engagement pattern")
             return self._execute_query('engagement_analysis', question)
         
-        # At-risk customers
-        if re.search(self.query_patterns['at_risk'], question_lower):
-            return self._execute_query('at_risk_customers', question)
-        
         # Feature adoption
-        if re.search(self.query_patterns['feature_adoption'], question_lower):
+        elif re.search(self.query_patterns['feature_adoption'], question_lower):
+            logger.info("Matched: feature_adoption pattern")
             return self._execute_query('feature_adoption', question)
         
         # Customer lifecycle
-        if re.search(self.query_patterns['lifecycle'], question_lower):
+        elif re.search(self.query_patterns['lifecycle'], question_lower):
+            logger.info("Matched: lifecycle pattern")
             return self._execute_query('lifecycle_analysis', question)
         
+        # Tags and saved replies analysis
+        elif re.search(self.query_patterns['tags_and_replies'], question_lower):
+            logger.info("Matched: tags_and_replies pattern")
+            return self._execute_query('tags_and_saved_replies', question)
+        
         # General customer insights
-        if re.search(self.query_patterns['customer_insights'], question_lower):
+        elif re.search(self.query_patterns['customer_insights'], question_lower):
+            logger.info("Matched: customer_insights pattern")
             # Check for specific plan mentions
             plan_match = re.search(r'(basic|standard|pro|enterprise)', question_lower)
             if plan_match:
@@ -99,6 +122,7 @@ class ConversationalInterface:
             else:
                 return self._execute_query('engagement_analysis', question)
         
+        logger.info("No pattern matched")
         return None
     
     def _execute_query(self, query_type: str, original_question: str) -> Dict[str, Any]:

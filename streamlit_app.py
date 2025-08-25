@@ -316,24 +316,16 @@ def main():
         
         st.divider()
         
-        # Enhanced sample questions for real data
+        # Clean sample questions that will return responses
         st.subheader("Try These Questions:")
         sample_questions = [
             "Who are the top 10 customers by revenue?",
-            "Show me usage patterns across different plans",
-            "Which customers have the highest engagement rates?",
-            "Find customers at risk of churning based on activity",
             "What's the average monthly revenue by plan type?",
-            "Show me workflow usage correlation with customer revenue",
-            "Which Standard plan customers use the most integrations?",
-            "Find high-revenue customers with low user activation",
-            "What's the feature adoption rate across plan types?",
-            "Show me customer lifecycle analysis by months active",
-            "Which customers have advanced API access enabled?",
-            "Compare contacts per workflow across different plans",
-            "Find Enterprise customers with billing issues",
-            "Show me the distribution of regular vs active users",
-            "Which plan generates the most total revenue?"
+            "Show me customers at risk of churning",
+            "Which customers have low user engagement rates?",
+            "Show me usage patterns across different plans", 
+            "What's the feature adoption rate by plan?",
+            "Show me tags and saved replies usage by plan"
         ]
         
         for question in sample_questions:
