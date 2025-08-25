@@ -325,26 +325,33 @@ class ConversationalInterface:
         """Get list of example questions the interface can handle."""
         return [
             "Who are the top 10 customers by revenue?",
-            "Show me usage patterns by plan type",
-            "Which customers have low engagement rates?",
-            "What customers are at risk of churning?",
-            "How do Pro plan customers use features?", 
-            "Show me plan performance analysis",
-            "What's the feature adoption rate by plan?",
-            "Analyze customer lifecycle stages",
-            "Find high-value customers with low activity",
-            "Show me workflow usage correlation with revenue"
+            "Show me usage patterns across different plans",
+            "Which customers have the highest engagement rates?",
+            "Find customers at risk of churning based on activity",
+            "What's the average monthly revenue by plan type?",
+            "Show me workflow usage correlation with customer revenue", 
+            "Which Standard plan customers use the most integrations?",
+            "Find high-revenue customers with low user activation",
+            "What's the feature adoption rate across plan types?",
+            "Show me customer lifecycle analysis by months active",
+            "Which customers have advanced API access enabled?",
+            "Compare contacts per workflow across different plans",
+            "Find Enterprise customers with billing issues",
+            "Show me the distribution of regular vs active users",
+            "Which plan generates the most total revenue?"
         ]
     
     def get_available_analyses(self) -> Dict[str, str]:
         """Get available analysis types with descriptions."""
         return {
-            'Revenue Analysis': 'Top customers by revenue, revenue distribution, billing status',
-            'Usage Patterns': 'Activity metrics, feature usage, engagement rates by plan',
-            'Customer Engagement': 'User activation rates, workflow usage, contact patterns',
-            'Risk Assessment': 'At-risk customers, low engagement, billing issues',
-            'Plan Performance': 'Plan comparison, customer distribution, revenue by plan',
-            'Feature Adoption': 'Integration usage, API access, advanced features',
-            'Lifecycle Analysis': 'Customer maturity stages, tenure patterns',
-            'Custom Analysis': 'Specific plan or customer segment deep-dives'
+            'Revenue Analysis': 'Top customers by average monthly revenue, revenue distribution by plan, billing status analysis',
+            'Usage Patterns': 'Contacts, workflows, integrations usage by plan type, user activation rates',
+            'Customer Engagement': 'Monthly active users vs regular users, workflow adoption, contact management patterns',
+            'Risk Assessment': 'At-risk customers based on billing status, low engagement, inactive users',
+            'Plan Performance': 'Revenue and usage comparison across Basic, Standard, Pro, Enterprise plans',
+            'Feature Adoption': 'API access usage, advanced security adoption, integrations by plan',
+            'Lifecycle Analysis': 'Customer tenure analysis using months_since_active, maturity stages',
+            'Billing & Revenue': 'Payment frequency analysis, revenue forecasting, past due accounts',
+            'User Activity': 'Regular users, monthly active users, light users analysis by customer',
+            'Custom Segmentation': 'Deep-dive analysis for specific plans, revenue tiers, or customer segments'
         }

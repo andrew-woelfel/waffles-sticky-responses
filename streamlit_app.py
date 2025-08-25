@@ -7,8 +7,28 @@ import os
 from dotenv import load_dotenv
 import numpy as np
 
-# Load environment variables
-load_dotenv()
+def get_openai_api_key():
+    """Get OpenAI API key from various sources."""
+    # Try Streamlit secrets first (for cloud deployment)
+    try:
+        return st.secrets["OPENAI_API_KEY"]
+    except (KeyError, FileNotFoundError):
+        pass
+    
+    # Try environment variable
+    api_key = os.getenv('OPENAI_API_KEY')
+    if api_key:
+        return api_key
+    
+    # Try .env file (for local development)
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+        return os.getenv('OPENAI_API_KEY')
+    except ImportError:
+        pass
+    
+    return None
 
 # Page configuration
 st.set_page_config(
@@ -208,15 +228,19 @@ def create_visualization(data: pd.DataFrame, query_type: str, question: str):
         # Plan distribution
         elif 'plan_name' in data.columns and len(data) > 1:
             if 'customer_count' in data.columns:
-                # Plan performance pie chart
-                fig = px.pie(data, values='customer_count', names='plan_name',
-                           title="Customer Distribution by Plan")
+                # Plan performance column chart
+                fig = px.bar(data, x='plan_name', y='customer_count',
+                           title="Customer Distribution by Plan",
+                           labels={'plan_name': 'Plan Type', 'customer_count': 'Number of Customers'})
+                fig.update_layout(showlegend=False)
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                # Simple plan distribution
+                # Simple plan distribution column chart
                 plan_counts = data['plan_name'].value_counts()
-                fig = px.pie(values=plan_counts.values, names=plan_counts.index,
-                           title="Plan Distribution")
+                fig = px.bar(x=plan_counts.index, y=plan_counts.values,
+                           title="Plan Distribution",
+                           labels={'x': 'Plan Type', 'y': 'Number of Customers'})
+                fig.update_layout(showlegend=False)
                 st.plotly_chart(fig, use_container_width=True)
         
         # Feature adoption rates
@@ -296,15 +320,20 @@ def main():
         st.subheader("Try These Questions:")
         sample_questions = [
             "Who are the top 10 customers by revenue?",
-            "Show me usage patterns by plan type",
-            "Which customers have low engagement rates?",
-            "What customers are at risk of churning?",
-            "How do Pro plan customers use features?",
-            "Show me plan performance analysis", 
-            "What's the feature adoption rate by plan?",
-            "Find high-value customers with low activity",
-            "Analyze customer lifecycle stages",
-            "Show workflow usage correlation with revenue"
+            "Show me usage patterns across different plans",
+            "Which customers have the highest engagement rates?",
+            "Find customers at risk of churning based on activity",
+            "What's the average monthly revenue by plan type?",
+            "Show me workflow usage correlation with customer revenue",
+            "Which Standard plan customers use the most integrations?",
+            "Find high-revenue customers with low user activation",
+            "What's the feature adoption rate across plan types?",
+            "Show me customer lifecycle analysis by months active",
+            "Which customers have advanced API access enabled?",
+            "Compare contacts per workflow across different plans",
+            "Find Enterprise customers with billing issues",
+            "Show me the distribution of regular vs active users",
+            "Which plan generates the most total revenue?"
         ]
         
         for question in sample_questions:
@@ -331,7 +360,7 @@ def main():
         question = st.text_input(
             "What would you like to know about the customer data?",
             value=st.session_state.get('current_question', ''),
-            placeholder="e.g., Which Pro customers have the highest revenue but lowest engagement?"
+            placeholder="e.g., Which Pro customers have high revenue but low monthly active users?"
         )
         
         if st.button("🔍 Get Answer", type="primary") and question:
@@ -449,8 +478,10 @@ def main():
                     list(overview['plan_distribution'].items()),
                     columns=['Plan', 'Customers']
                 )
-                fig = px.pie(plan_data, values='Customers', names='Plan', 
-                           title="Customer Distribution")
+                fig = px.bar(plan_data, x='Plan', y='Customers', 
+                           title="Customer Distribution by Plan",
+                           labels={'Plan': 'Plan Type', 'Customers': 'Number of Customers'})
+                fig.update_layout(showlegend=False)
                 st.plotly_chart(fig, use_container_width=True)
         
         else:
