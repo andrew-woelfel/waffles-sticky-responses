@@ -44,42 +44,192 @@ if 'initialized' not in st.session_state:
     st.session_state.components_loaded = False
     st.session_state.data_loaded = False
 
-# Custom CSS
+# Custom CSS with dark/light mode support
 st.markdown("""
 <style>
+    /* Light mode styles (default) */
     .main-header {
         font-size: 2.5rem;
         font-weight: 700;
-        color: #1f77b4;
+        color: var(--primary-color, #1f77b4);
         text-align: center;
         margin-bottom: 2rem;
     }
+    
     .sub-header {
         font-size: 1.2rem;
-        color: #666;
+        color: var(--text-color, #666);
         text-align: center;
         margin-bottom: 2rem;
     }
+    
     .metric-card {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        border-left: 4px solid #1f77b4;
+        background: linear-gradient(135deg, 
+            var(--card-bg-start, #f8f9fa) 0%, 
+            var(--card-bg-end, #e9ecef) 100%);
+        padding: 1.2rem;
+        border-radius: 12px;
+        border: 1px solid var(--border-color, #dee2e6);
         margin-bottom: 1rem;
+        box-shadow: 0 2px 4px var(--shadow-color, rgba(0,0,0,0.1));
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
+    
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px var(--shadow-hover, rgba(0,0,0,0.15));
+    }
+    
     .success-card {
-        background-color: #d4edda;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        border-left: 4px solid #28a745;
+        background: linear-gradient(135deg, 
+            var(--success-bg-start, #d4edda) 0%, 
+            var(--success-bg-end, #c3e6cb) 100%);
+        padding: 1.2rem;
+        border-radius: 12px;
+        border: 1px solid var(--success-border, #c3e6cb);
         margin-bottom: 1rem;
+        box-shadow: 0 2px 4px var(--shadow-color, rgba(0,0,0,0.1));
     }
+    
     .warning-card {
-        background-color: #fff3cd;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        border-left: 4px solid #ffc107;
+        background: linear-gradient(135deg, 
+            var(--warning-bg-start, #fff3cd) 0%, 
+            var(--warning-bg-end, #ffeeba) 100%);
+        padding: 1.2rem;
+        border-radius: 12px;
+        border: 1px solid var(--warning-border, #ffeeba);
         margin-bottom: 1rem;
+        box-shadow: 0 2px 4px var(--shadow-color, rgba(0,0,0,0.1));
+    }
+    
+    /* Dark mode detection and styles */
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --primary-color: #4dabf7;
+            --text-color: #c1c2c5;
+            --card-bg-start: #2c2c2c;
+            --card-bg-end: #3c3c3c;
+            --border-color: #495057;
+            --shadow-color: rgba(0,0,0,0.3);
+            --shadow-hover: rgba(0,0,0,0.4);
+            --success-bg-start: #2b5a3e;
+            --success-bg-end: #1e4532;
+            --success-border: #28a745;
+            --warning-bg-start: #664d03;
+            --warning-bg-end: #554d1f;
+            --warning-border: #ffc107;
+        }
+    }
+    
+    /* Light mode variables */
+    @media (prefers-color-scheme: light) {
+        :root {
+            --primary-color: #1f77b4;
+            --text-color: #666;
+            --card-bg-start: #f8f9fa;
+            --card-bg-end: #e9ecef;
+            --border-color: #dee2e6;
+            --shadow-color: rgba(0,0,0,0.1);
+            --shadow-hover: rgba(0,0,0,0.15);
+            --success-bg-start: #d4edda;
+            --success-bg-end: #c3e6cb;
+            --success-border: #c3e6cb;
+            --warning-bg-start: #fff3cd;
+            --warning-bg-end: #ffeeba;
+            --warning-border: #ffeeba;
+        }
+    }
+    
+    /* Force light mode for specific Streamlit elements */
+    .stApp {
+        color-scheme: light dark;
+    }
+    
+    /* Enhanced metric card headers */
+    .metric-card h4 {
+        margin: 0;
+        color: var(--primary-color, #1f77b4);
+        font-weight: 600;
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .metric-card h2, .metric-card h3 {
+        margin: 0.5rem 0 0 0;
+        color: var(--text-color, #333);
+        font-weight: 700;
+    }
+    
+    .success-card h4 {
+        margin: 0;
+        color: var(--success-text, #155724);
+        font-weight: 600;
+    }
+    
+    .warning-card h4 {
+        margin: 0;
+        color: var(--warning-text, #856404);
+        font-weight: 600;
+    }
+    
+    /* Dark mode text colors */
+    @media (prefers-color-scheme: dark) {
+        .success-card h4 {
+            color: #4caf50;
+        }
+        .warning-card h4 {
+            color: #ff9800;
+        }
+        .metric-card h2, .metric-card h3 {
+            color: #e1e1e1;
+        }
+    }
+    
+    /* Button styling improvements */
+    .stButton > button {
+        background: linear-gradient(135deg, var(--primary-color, #1f77b4) 0%, #1565c0 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    /* Sidebar improvements */
+    .css-1d391kg {
+        background: var(--card-bg-start, #f8f9fa);
+    }
+    
+    /* Chart container improvements */
+    .js-plotly-plot {
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px var(--shadow-color, rgba(0,0,0,0.1));
+    }
+    
+    /* Custom scrollbar for dark mode */
+    @media (prefers-color-scheme: dark) {
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #2c2c2c;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #666;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #888;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -167,11 +317,27 @@ def display_data_overview(data_summary: dict, processed_data: dict):
                 count = data_summary['tables'][table]['row_count']
                 st.sidebar.write(f"• {table.title()}: {count:,} records")
 
+def get_chart_colors():
+    """Get chart color scheme based on system theme preference."""
+    # You can detect the theme via JavaScript, but for simplicity we'll use a good universal palette
+    return {
+        'primary': '#4dabf7',
+        'secondary': '#69db7c', 
+        'tertiary': '#ffd43b',
+        'quaternary': '#ff8cc8',
+        'background': 'rgba(0,0,0,0)',
+        'text': '#495057',
+        'grid': '#e9ecef'
+    }
+
 def create_visualization(data: pd.DataFrame, query_type: str, question: str):
     """Create appropriate visualization based on data and query type."""
     if data.empty:
         st.info("No data to visualize")
         return
+    
+    # Get adaptive color scheme
+    colors = get_chart_colors()
     
     try:
         # Revenue-based visualizations
@@ -184,29 +350,57 @@ def create_visualization(data: pd.DataFrame, query_type: str, question: str):
             
             if revenue_col and len(data) > 1:
                 if 'customer_name' in data.columns:
-                    # Top customers bar chart
+                    # Top customers bar chart with custom colors
                     fig = px.bar(data.head(10), 
                                x='customer_name', y=revenue_col,
                                color='plan_name' if 'plan_name' in data.columns else None,
-                               title=f"Revenue Analysis: {question}")
+                               title=f"Revenue Analysis: {question}",
+                               color_discrete_sequence=[colors['primary'], colors['secondary'], 
+                                                      colors['tertiary'], colors['quaternary']])
                     fig.update_xaxis(tickangle=45)
+                    fig.update_layout(
+                        plot_bgcolor=colors['background'],
+                        paper_bgcolor=colors['background'],
+                        font_color=colors['text'],
+                        showlegend=True,
+                        legend=dict(
+                            bgcolor="rgba(0,0,0,0)",
+                            bordercolor="rgba(0,0,0,0)"
+                        )
+                    )
                     st.plotly_chart(fig, use_container_width=True)
                     
                 elif 'plan_name' in data.columns:
                     # Plan performance chart
                     fig = px.bar(data, x='plan_name', y=revenue_col,
-                               title=f"Revenue by Plan: {question}")
+                               title=f"Revenue by Plan: {question}",
+                               color='plan_name',
+                               color_discrete_sequence=[colors['primary'], colors['secondary'], 
+                                                      colors['tertiary'], colors['quaternary']])
+                    fig.update_layout(
+                        plot_bgcolor=colors['background'],
+                        paper_bgcolor=colors['background'],
+                        font_color=colors['text'],
+                        showlegend=False
+                    )
                     st.plotly_chart(fig, use_container_width=True)
         
         # Usage pattern visualizations
         elif any(col in data.columns for col in ['avg_contacts', 'avg_workflows', 'contacts', 'workflows']):
             if 'plan_name' in data.columns and 'avg_contacts' in data.columns:
-                # Usage by plan
+                # Usage by plan scatter plot
                 fig = px.scatter(data, x='avg_contacts', y='avg_workflows', 
                                size='customer_count' if 'customer_count' in data.columns else None,
                                color='plan_name',
                                title="Usage Patterns by Plan",
-                               labels={'avg_contacts': 'Avg Contacts', 'avg_workflows': 'Avg Workflows'})
+                               labels={'avg_contacts': 'Avg Contacts', 'avg_workflows': 'Avg Workflows'},
+                               color_discrete_sequence=[colors['primary'], colors['secondary'], 
+                                                      colors['tertiary'], colors['quaternary']])
+                fig.update_layout(
+                    plot_bgcolor=colors['background'],
+                    paper_bgcolor=colors['background'],
+                    font_color=colors['text']
+                )
                 st.plotly_chart(fig, use_container_width=True)
             
             elif 'contacts' in data.columns and 'workflows' in data.columns:
@@ -214,7 +408,14 @@ def create_visualization(data: pd.DataFrame, query_type: str, question: str):
                 fig = px.scatter(data.head(20), x='contacts', y='workflows',
                                color='plan_name' if 'plan_name' in data.columns else None,
                                hover_name='customer_name' if 'customer_name' in data.columns else None,
-                               title="Customer Usage Patterns")
+                               title="Customer Usage Patterns",
+                               color_discrete_sequence=[colors['primary'], colors['secondary'], 
+                                                      colors['tertiary'], colors['quaternary']])
+                fig.update_layout(
+                    plot_bgcolor=colors['background'],
+                    paper_bgcolor=colors['background'],
+                    font_color=colors['text']
+                )
                 st.plotly_chart(fig, use_container_width=True)
         
         # Engagement visualizations
@@ -222,25 +423,48 @@ def create_visualization(data: pd.DataFrame, query_type: str, question: str):
             fig = px.histogram(data, x='user_activation_rate',
                              color='plan_name' if 'plan_name' in data.columns else None,
                              title="User Activation Rate Distribution",
-                             labels={'user_activation_rate': 'Activation Rate (%)'})
+                             labels={'user_activation_rate': 'Activation Rate (%)'},
+                             color_discrete_sequence=[colors['primary'], colors['secondary'], 
+                                                    colors['tertiary'], colors['quaternary']])
+            fig.update_layout(
+                plot_bgcolor=colors['background'],
+                paper_bgcolor=colors['background'],
+                font_color=colors['text']
+            )
             st.plotly_chart(fig, use_container_width=True)
         
         # Plan distribution
         elif 'plan_name' in data.columns and len(data) > 1:
             if 'customer_count' in data.columns:
-                # Plan performance column chart
+                # Plan performance column chart with custom colors
                 fig = px.bar(data, x='plan_name', y='customer_count',
                            title="Customer Distribution by Plan",
-                           labels={'plan_name': 'Plan Type', 'customer_count': 'Number of Customers'})
-                fig.update_layout(showlegend=False)
+                           labels={'plan_name': 'Plan Type', 'customer_count': 'Number of Customers'},
+                           color='plan_name',
+                           color_discrete_sequence=[colors['primary'], colors['secondary'], 
+                                                  colors['tertiary'], colors['quaternary']])
+                fig.update_layout(
+                    plot_bgcolor=colors['background'],
+                    paper_bgcolor=colors['background'],
+                    font_color=colors['text'],
+                    showlegend=False
+                )
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 # Simple plan distribution column chart
                 plan_counts = data['plan_name'].value_counts()
                 fig = px.bar(x=plan_counts.index, y=plan_counts.values,
                            title="Plan Distribution",
-                           labels={'x': 'Plan Type', 'y': 'Number of Customers'})
-                fig.update_layout(showlegend=False)
+                           labels={'x': 'Plan Type', 'y': 'Number of Customers'},
+                           color=plan_counts.index,
+                           color_discrete_sequence=[colors['primary'], colors['secondary'], 
+                                                  colors['tertiary'], colors['quaternary']])
+                fig.update_layout(
+                    plot_bgcolor=colors['background'],
+                    paper_bgcolor=colors['background'],
+                    font_color=colors['text'],
+                    showlegend=False
+                )
                 st.plotly_chart(fig, use_container_width=True)
         
         # Feature adoption rates
@@ -248,7 +472,16 @@ def create_visualization(data: pd.DataFrame, query_type: str, question: str):
             rate_columns = [col for col in data.columns if '_rate' in col or 'adoption' in col]
             if rate_columns and 'plan_name' in data.columns:
                 fig = px.bar(data, x='plan_name', y=rate_columns[0],
-                           title=f"Feature Adoption by Plan")
+                           title=f"Feature Adoption by Plan",
+                           color='plan_name',
+                           color_discrete_sequence=[colors['primary'], colors['secondary'], 
+                                                  colors['tertiary'], colors['quaternary']])
+                fig.update_layout(
+                    plot_bgcolor=colors['background'],
+                    paper_bgcolor=colors['background'],
+                    font_color=colors['text'],
+                    showlegend=False
+                )
                 st.plotly_chart(fig, use_container_width=True)
         
         else:
@@ -470,10 +703,21 @@ def main():
                     list(overview['plan_distribution'].items()),
                     columns=['Plan', 'Customers']
                 )
+                
+                colors = get_chart_colors()
                 fig = px.bar(plan_data, x='Plan', y='Customers', 
                            title="Customer Distribution by Plan",
-                           labels={'Plan': 'Plan Type', 'Customers': 'Number of Customers'})
-                fig.update_layout(showlegend=False)
+                           labels={'Plan': 'Plan Type', 'Customers': 'Number of Customers'},
+                           color='Plan',
+                           color_discrete_sequence=[colors['primary'], colors['secondary'], 
+                                                  colors['tertiary'], colors['quaternary']])
+                fig.update_layout(
+                    plot_bgcolor=colors['background'],
+                    paper_bgcolor=colors['background'],
+                    font_color=colors['text'],
+                    showlegend=False,
+                    height=300
+                )
                 st.plotly_chart(fig, use_container_width=True)
         
         else:
