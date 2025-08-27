@@ -53,7 +53,41 @@ st.markdown("""
         font-weight: 700;
         color: var(--primary-color, #1f77b4);
         text-align: center;
+        margin: 0;
+        line-height: 1.2;
+    }
+    
+    .logo-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
         margin-bottom: 2rem;
+        padding: 1rem;
+        background: linear-gradient(135deg, 
+            var(--header-bg-start, #f8f9fa) 0%, 
+            var(--header-bg-end, #ffffff) 100%);
+        border-radius: 16px;
+        box-shadow: 0 4px 12px var(--shadow-color, rgba(0,0,0,0.1));
+        border: 1px solid var(--border-color, #e9ecef);
+    }
+    
+    .logo-container img {
+        height: 60px;
+        width: auto;
+        filter: drop-shadow(0 2px 4px var(--shadow-color, rgba(0,0,0,0.1)));
+        transition: transform 0.2s ease;
+    }
+    
+    .logo-container:hover img {
+        transform: scale(1.05);
+    }
+    
+    .logo-container .main-header {
+        background: linear-gradient(135deg, var(--primary-color, #1f77b4), #1565c0);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
     }
     
     .sub-header {
@@ -109,6 +143,8 @@ st.markdown("""
             --text-color: #c1c2c5;
             --card-bg-start: #2c2c2c;
             --card-bg-end: #3c3c3c;
+            --header-bg-start: #2c2c2c;
+            --header-bg-end: #1a1a1a;
             --border-color: #495057;
             --shadow-color: rgba(0,0,0,0.3);
             --shadow-hover: rgba(0,0,0,0.4);
@@ -128,6 +164,8 @@ st.markdown("""
             --text-color: #666;
             --card-bg-start: #f8f9fa;
             --card-bg-end: #e9ecef;
+            --header-bg-start: #f8f9fa;
+            --header-bg-end: #ffffff;
             --border-color: #dee2e6;
             --shadow-color: rgba(0,0,0,0.1);
             --shadow-hover: rgba(0,0,0,0.15);
@@ -490,9 +528,31 @@ def create_visualization(data: pd.DataFrame, query_type: str, question: str):
     except Exception as e:
         st.warning(f"Could not generate visualization: {str(e)}")
 
+def get_logo_html():
+    """Get logo HTML with fallback."""
+    try:
+        import base64
+        with open("assets/helpscout-icon.png", "rb") as img_file:
+            img_data = base64.b64encode(img_file.read()).decode()
+            return f'''
+            <div class="logo-container">
+                <img src="data:image/png;base64,{img_data}" 
+                     alt="Help Scout Logo">
+                <h1 class="main-header">Help Scout Analytics</h1>
+            </div>
+            '''
+    except FileNotFoundError:
+        # Fallback to emoji if PNG not found
+        return '''
+        <div class="logo-container">
+            <span style="font-size: 3rem;">🔍</span>
+            <h1 class="main-header">Help Scout Analytics</h1>
+        </div>
+        '''
+
 def main():
-    # Header
-    st.markdown('<h1 class="main-header">🔍 Help Scout Analytics</h1>', unsafe_allow_html=True)
+    # Header with logo
+    st.markdown(get_logo_html(), unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Conversational Interface for Customer Data Insights</p>', unsafe_allow_html=True)
     
     # Load processed data (cached)
